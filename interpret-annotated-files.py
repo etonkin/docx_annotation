@@ -33,6 +33,7 @@ def encode_highlight_colors(highlight_color,schema):
     for c in schema.keys():
         if highlight_color.startswith(c):
             return schema[c];
+    return 'UNSET';
 
 def nuke_fancy_quotes(text):
     # unfortunately windows uses a ridiculous brain-damaged codepage so fills documents with fancy quotes (see https://en.wikipedia.org/wiki/Windows-1252#Codepage_layout) and this messes up our comparison with our post-ucto fileset. So we try to replace these with something more standard. 
