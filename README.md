@@ -7,7 +7,7 @@ Extract highlights from docx files and store as JSON (useful for ML annotations)
 This is written in the partial expectation that some people may have decided to back their text extraction with an SQLite DB. 
 If this is not your case, you can use it as follows:
 
-python interpret-annotated-files.py -d ../my_annotated_docx_directory/  -o ./json -c schema.txt
+```python interpret-annotated-files.py -d ../my_annotated_docx_directory/  -o ./json -c schema.txt```
 
 and it will scan through all of your docx files looking for colour highlights, use the table you've given to figure out which colours imply which highlights, and store the result. 
 
