@@ -24,6 +24,7 @@ def print_help():
     print("--dirinput=dirname or -d dirname: scan a whole directory of docx files")
     print("--verbose or -v: tell me everything about what you are doing")
     print("--scan or -s: look for and store highlights")
+    print("--colourschema or -c: give file containing equivalence schema between annotations and colours (e.g. RED,ANGRY)")
     print("--output or -o: directory into which to store extracted JSONs")
     print("--database=database.db: database to lookup text location in database/document store (will not be calculated if empty)");
     print("--updatedb or -u: update the database to contain relevant annotations (will not be done if not set")
