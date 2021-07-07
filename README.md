@@ -17,6 +17,7 @@ To use this usefully, you need a schema (e.g. what colour corresponds to which a
 
 An example of such a schema is:
 
+```
 BRIGHT_GREEN,APP_DETERMINED_ALLOWED
 PINK,FT_OVERTURNED
 BLUE,APP_DETERMINED_DISMISSED
@@ -24,6 +25,7 @@ TURQUOISE,APP_RESUMED
 YELLOW,FT_UPHELD
 RED,APP_WITHDRAWN
 GRAY_25,APP_REMITTED
+```
 
 Place your version of this into a file, such as for example schema.txt, and reference it on the command line with -c. 
 
