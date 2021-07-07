@@ -27,7 +27,7 @@ RED,APP_WITHDRAWN
 GRAY_25,APP_REMITTED
 ```
 
-Place your version of this into a file, such as for example schema.txt, and reference it on the command line with -c. 
+Place your version of this into a file, such as for example schema.txt, and reference it on the command line with `-c`. 
 
 # How to use this on database-backed projects
 
