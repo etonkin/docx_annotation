@@ -37,38 +37,32 @@ def encode_highlight_colors(highlight_color,schema):
     return 'UNSET';
 
 def nuke_fancy_quotes(text):
-    # unfortunately windows uses a ridiculous brain-damaged codepage so fills documents with fancy quotes (see https://en.wikipedia.org/wiki/Windows-1252#Codepage_layout) and this messes up our comparison with our post-ucto fileset. So we try to replace these with something more standard. 
+    # unfortunately windows uses an idiosyncratic codepage so fills documents with fancy quotes (see https://en.wikipedia.org/wiki/Windows-1252#Codepage_layout)
+    # for those relying on comparison with tokenised documents, this can cause complications. So we try to replace these with something more standard. 
     text=text.replace(u'\u201c', '"').replace(u'\u201d', '"') 
     text=text.replace(u'\u2018', "'").replace(u'\u2019', "'") 
     text=text.replace(u'\u2013', "-").replace(u'\u2014', "-") 
     text=text.replace(u'\u20ac', "€")
     text=text.replace(u'\u00a3', "£ ") 
-    # sneaky attempt to help tokenizer
+    # idiosyncratic changes to render the behaviour of tokenizer closer to that of ucto
     # where you have ' before an acronym, add a space
     re_outer = re.compile(r'([^A-Z ])([A-Z])')
     re_inner = re.compile(r'\b[A-Z]+(?=[A-Z][a-z])')
     text = re.sub( r'([\'])([A-Z][A-Z])', r'\1 \2',text)
-    # the famous First-tier is not separated problem 
-    #text = re.sub( r'([A-Z][a-z]+)([-])([a-z][a-z]+)', r'\1 - \3',text)
-    #text = re.sub( r'([a-z][a-z]+)([-])([a-z][a-z]+)', r'\1 - \3',text)
-    #text=re.sub(r'first-tier','first - tier',text);
-    #text=re.sub(r'First-tier','First - tier',text);
     return(text);
 
 def uctolike_tokenize(text):
     tokenized_text=word_tokenize(text);
     # weirdness of this tokenizer: replaces cannot with can not, two words. 
     # for compatibility, doing the same here
-    # This is truly a horrible set of manual fixes. 
+    # This is clearly very idiosyncratic/contextual. 
     tokenized_str=' '.join(tokenized_text)
     tokenized_str=tokenized_str.replace("can not","cannot")
     tokenized_str=tokenized_str.replace("First-tier","First - tier")
     tokenized_alt_text=tokenized_str.split();
     return tokenized_text,tokenized_alt_text; 
-    #tokenized_text=' '.split(' '.join(tokenized_text).replace("can not","cannot"))
 
-# Now the problem we have here is because of the different doc structures we have no coherent idea which paragraph we are in (that is, given what it will look like after being preprocessed through ucto)
-# so we have to do whatever we can to help us figure out where it might belong. 
+
 def process_word_file(docurl,filename,schema):
     #document=docx.Document(docurl);
     tknzr = TweetTokenizer()
@@ -89,22 +83,18 @@ def process_word_file(docurl,filename,schema):
         for run in paragraph.runs:
             logging.debug(run.text); 
             interpreted_highlight['text']="";
-            # problem in this code: if highlight colour changes you end up with them running together if you do it this way
-            # SO THERE IS A BUG IN THIS CODE grr
-
-            # This occurs if two highlighted segments appear together, but with a gap (like a blank space which is not highlighted). The solution is probably to identify the run ID, if it has one, and use that instead of the colour to identify that we've moved to a new one. This happens because we are technically looking for all highlights in a given paragraph context. 
-            # ok let's think with brain. So, runs include all text spans, both highlighted and not. 
+            # With a simplisitic approach a bug shows up if two highlighted segments appear together, but with a gap (like a blank space which is not highlighted). 
+            # runs include all text spans, both highlighted and not. 
             if run.font.highlight_color:
-                #if(cur_highlight_col!=False):
                 if(run.font.highlight_color!=cur_highlight_col and cur_highlight_col!=False):
+                    # highlight colour change has occurred
                     logging.debug("Highlight color change!");
                     logging.debug("Current state of highlight:");
                     logging.debug(highlight);
                     # this happens if highlight colour changes
                     # kill this one off and start a new one. 
                     interpreted_highlight['text']=nuke_fancy_quotes(highlight);
-                    # the tokeniser used HERE replaces 'cannot' with 'can not', two words. Ucto does not. 
-                    # ucto thinks first-tier is two words (I think) TODO CHECK THIS
+                    # tokenise a copy of it. This will probably come in handy later. 
                     interpreted_highlight['alt_tokenised_text'],interpreted_highlight['tokenised_text']=uctolike_tokenize(interpreted_highlight['text']);
                     logging.debug("ALT TEXT");
                     logging.debug(interpreted_highlight['alt_tokenised_text'])
@@ -117,36 +107,21 @@ def process_word_file(docurl,filename,schema):
                     highlights.append(interpreted_highlight);
                     interpreted_highlight={};
                     highlight="";
-                    # what I don't know is how to detect that it is a new run of the same colour within same par!
-                #else:
-                    #cur_highlight_col=False; # str(run.font.highlight_color);
-                    #print("CUR_HIGHLIGHT_COL was false");
-                    #interpreted_highlight['text']=nuke_fancy_quotes(highlight);
-                    #interpreted_highlight['tag']=encode_highlight_colors(run.font.highlight_color);
-                    #interpreted_highlight['file_origin']=filename 
-                    #interpreted_highlight['tokenised_text']=word_tokenize(interpreted_highlight['text']);
-                    #highlights.append(interpreted_highlight);
-                    #interpreted_highlight={};
-                    #highlight="";
                 cur_highlight_col=run.font.highlight_color;
                 highlight += run.text
-                #text_it=run.text.join(' ')
-                #print(run.text);
                 interpreted_highlight['textcolor']=run.font.highlight_color;
                 interpreted_highlight['tag']=encode_highlight_colors(run.font.highlight_color,schema);
                 interpreted_highlight['file_origin']=filename 
                 interpreted_highlight['textualcontext']=partext;
-                # tokenise a copy of it. This will probably come in handy later. 
-                #print(run.font.highlight_color);
             else:
                if (highlight!=""):
+            	    # no longer have highlight, so the span must've finished. Therefore, shove it in a stored highlight
                    logging.debug("Current state of highlight (on false)");
                    logging.debug(highlight); 
-                   cur_highlight_col=False; # str(run.font.highlight_color);
+                   cur_highlight_col=False;
                    interpreted_highlight['file_origin']=filename 
                    interpreted_highlight['textualcontext']=partext;
                    interpreted_highlight['text']=nuke_fancy_quotes(highlight);
-                   #interpreted_highlight['tokenised_text']=uctolike_tokenize(interpreted_highlight['text']);
                    interpreted_highlight['alt_tokenised_text'],interpreted_highlight['tokenised_text']=uctolike_tokenize(interpreted_highlight['text']);
                    logging.debug("ALT TEXT");
                    logging.debug(interpreted_highlight['alt_tokenised_text'])
@@ -156,18 +131,12 @@ def process_word_file(docurl,filename,schema):
                    interpreted_highlight={};
                    highlight="";
         if highlight:
-            #highlights.append(highlight)
-            #interpreted_highlight['text']=highlight;
-            #interpreted_highlight['text']=highlight.replace("'","’");
             interpreted_highlight['file_origin']=filename 
             interpreted_highlight['textcolor']=run.font.highlight_color;
             interpreted_highlight['text']=nuke_fancy_quotes(highlight);
-            #interpreted_highlight['tokenised_text']=word_tokenize(interpreted_highlight['text']);
             interpreted_highlight['alt_tokenised_text'],interpreted_highlight['tokenised_text']=uctolike_tokenize(interpreted_highlight['text']);
             highlights.append(interpreted_highlight);
 
-    #for h in highlights:
-    #    print(h)
     return highlights;
 
 def create_connection(db_file):
@@ -180,7 +149,6 @@ def create_connection(db_file):
         print(e)
     finally:
         if conn:
-            #conn.close()
             return conn;
 
 def KnuthMorrisPratt(text, pattern):
@@ -269,7 +237,6 @@ if __name__ == "__main__":
     schema={};
     try:
         arguments, values = getopt.getopt(argument_list, short_opts, long_opts)
-        #print(arguments);
     except getopt.error as err:
         # Output error, and return with an error code
         print (str(err))
@@ -343,7 +310,6 @@ if __name__ == "__main__":
                     itemid=row[0];
                 if(itemid!=""):
                     # we know which item it is
-                    #print(itemid);
                     # so now we need to find the corresponding segment from all rows 
                     curr.execute(sql_get_words_from_file,(itemid,));    
                     rows=curr.fetchall();
@@ -359,12 +325,10 @@ if __name__ == "__main__":
                         word=row[3];
                         wordset.append(word); 
                         existing_tagset.append(row[5])
-                        # this is failing because of sodding microsoft word fancy quotes. Must remove these. 
+                        # this often fails because of microsoft word fancy quotes, so we remove these.
                         # (this has been implemented here, see nuke fancy quotes method - there are probably other things that could trip this under certain circs so it is possible some cases will fail)
                         # choosing one of these methods entirely at random (should time them one day)
-                        #print(index(tokenised_terms,wordset));
                         #for s in KnuthMorrisPratt(wordset,tokenised_terms): 
-                        #    print (s);
                         index= find_sublist(tokenised_terms,wordset)
                         if(index==-1):
                             # second try with what we know are a couple of common issues (these tend to relate to differences in tokenisation practices which mess with the DB)
@@ -379,19 +343,17 @@ if __name__ == "__main__":
                                 for x in range(index,index+tokenisedterm_len):
                                     curr.execute(sql_update_tags,(tag,wordid[x],));
                                     conn.commit();
-                        else: # couldn't work out the index
+                        else: # couldn't work out the index , just record it without any position in file information - the -1 in the filename means 'got stuck here'.
                             i['corpus_start_wordid']=-1;
                             i['doc-word-index']=-1;
-           # if no db, we haven't been able to work out the position in the ucto-tokenised dataset because we didn't have a db to look it up in - so we just give the information we have without it 
+           # if no db, we haven't been able to work out the position in the ucto-tokenised dataset because we didn't have a db to look it up in - 
+	   # so we just give the information we have without it 
             if( 'corpus_start_wordid' in i.keys()): #if we know where this actually came from in the file
                 fname="msword-decision-"+i['file_origin']+'-'+str(i['corpus_start_wordid'])+'.json'; 
-            else:
+            else: # no idea where it comes from in the file, just name it with an incrementing counter
                 fname="msword-decision-"+i['file_origin']+'-no-'+str(annotationcount)+'.json';
                 annotationcount=annotationcount+1;
             with open (os.path.join(outdir,fname), 'w') as outfile:
                 json.dump(i,outfile);
-            # for each highlight level
         annotationcount=0;
-        # for each file level        
-    # main level
 #vim: ts=4 sw=4 et
